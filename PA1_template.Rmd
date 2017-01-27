@@ -1,0 +1,121 @@
+R Markdown file for Reproducible Research Week 2
+=================================================
+
+##First steps is to load the data and look at some basic summary statistics of the data 
+```{r review criteria 1, echo = TRUE}
+setwd("//LanFspd01.ncsbn.org/UserProfileFolders$/LErickson/Documents/Coursera/data")
+Activity <- read.csv("activity.csv", header = TRUE, na.strings="NA")
+summary(Activity)
+rdate <- as.Date(Activity$date,"%m/%d/%y")
+head(Activity)
+```
+
+
+
+##Now, I want to look at a **histogram** of the total number of steps taken each day. 
+To do this, I need to:
+
+          1. Calculate the sum of the steps taken each day
+          2. Create the histogram of the calculated steps
+
+```{r review criteria 2, echo = TRUE}
+TotalDailySteps <- tapply(Activity$steps, Activity$date, FUN = sum, na.rm = TRUE) 
+hist(TotalDailySteps, breaks=10, xlab="Steps per Day", col="pink", main="Total Number of Steps Taken Each Day")
+```
+
+
+
+##Next, I want to to know what the **mean** and **median** number of steps taken each day and rounded to one digit
+```{r review criteria 3, echo = TRUE}
+options(digits=1)  ##round to one digit
+stepsmean <- mean(TotalDailySteps, na.rm = TRUE)
+stepsmedian <- median(TotalDailySteps, na.rm = TRUE)
+```
+The mean number of steps taken each day is `r stepsmean`.  
+The median number of steps taken each day is `r stepsmedian`.
+
+
+
+##I want to view a time series plot of the average number of steps taken per interval.  
+To do this, I need to:
+
+                   1. Calculate the mean number of steps per interval
+                   2. Create a data frame with the caluclated mean
+                   3. Create the plot of the new data frame as a time series plot
+                   
+```{r review criteria 4, echo = TRUE}
+IntervalStep <- tapply(Activity$steps, Activity$interval, mean, na.rm = TRUE) ##Calculating the mean number of steps taken at each interval
+IntAvg <- data.frame(interval=as.integer(names(IntervalStep)), avg=IntervalStep) ##creating a data frame from IntervalStep
+plot(IntAvg$avg ~ IntAvg$interval, type='l', col="pink", xlab = "Interval", ylab = "Average Steps", main="Average Steps per Interval")
+```
+
+
+
+##Next, I want to find the maximum number of steps taken during a 5-minute interval
+```{r review criteria 5, echo = TRUE}
+StepsMax <- IntAvg[which.max(IntAvg$avg), ]
+```
+The maximum number of steps taken during a 5-minute interval is `r StepsMax$avg` steps at interval `r StepsMax$interval`
+
+
+
+##This code shows how I dealt with missing data
+first step is to calculate the number of missing data values
+```{r review criteria 6.1, echo = TRUE}
+MissingSteps <- sum(is.na(Activity$steps))  ##to find how many missing data points there are
+```
+
+There are `r MissingSteps` missing data values
+
+
+Next, I need to apply the median for a 5-minute interval and use that number of fill the missing data values. Here are my steps to do this:
+
+        1. Calculate the median number of steps for each interval. 
+        2. Create a data frame from the median calculated. 
+        3. Merge the created data frame with the original data set. 
+        4. Replace the missing values with the calculated median. 
+
+```{r review criteria 6.2, echo = TRUE}
+MedStep <- tapply(Activity$steps, Activity$interval, median, na.rm = TRUE) ##Calculating the mean number of steps taken at each interval
+IntMed <- data.frame(interval=as.integer(names(MedStep)), step=MedStep) ##creating a data frame from MedStep
+
+TempActivity <- merge(Activity, IntMed, by="interval", all.y = FALSE) ##Merge the created data frame with the original data set
+TempActivity$steps[is.na(TempActivity$steps)] <- as.integer(round(TempActivity$step[is.na(TempActivity$steps)])) ##uses the calculated median in place of the missing values
+keeps <- names(Activity)
+TempActivity <- TempActivity[keeps]
+MissingSteps2 <- sum(is.na(TempActivity$steps)) 
+```
+We can see that this method has producted `r MissingSteps2` missing data values
+
+
+##Let's look at a histogram of the total steps taken where the missing data is replaced with the median of the 5-minute interval
+To do this, I need to:
+
+          1. Calculate the total steps per each day
+          2. create a histogram of this calculation
+
+```{r review criteria 7, echo = TRUE}
+RevTotalDailySteps <- tapply(TempActivity$steps, TempActivity$date, FUN = sum, na.rm = TRUE) 
+hist(RevTotalDailySteps, breaks=10, main="Total Steps using Median for NAs", xlab="Steps per Day", col="pink")
+```
+
+
+##I want to look at the differences in average number of steps taken per 5-minute interval across weekdays and weekends
+
+      1. Create a variable that labels each oberservation as a weekend or weekday based on the given date
+      2. Calculate the mean number of steps per each interval
+      3. Load lattice because we want to stack two graphs
+      4. Plote the data
+
+
+```{r review criteria 8, echo = TRUE}
+Weekend <- c("Saturday", "Sunday") #Identifying the weekend
+TempActivity$weekday = as.factor(ifelse(is.element(weekdays(as.Date(TempActivity$date)), Weekend), "Weekend",  "Weekday"))  #flesh out the weekends by using an if else statement - if it is not a weekend, it is a weekday
+
+
+IntervalDow <- aggregate(steps ~ interval + weekday, TempActivity, mean)  
+head(IntervalDow)
+
+library(lattice)
+xyplot(IntervalDow$steps ~ IntervalDow$interval|IntervalDow$weekday, layout=c(1,2), type="l", col="pink", main="Steps per Interval Comparing Weekday to Weekend", ylab="Steps", xlab="Interval")
+```
